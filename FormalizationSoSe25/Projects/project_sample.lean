@@ -1,16 +1,64 @@
 -- Here is a first `import Mathlib.Tactic` to get things started.
 -- Based on the definitions you need, you can add more imports right below.
 import Mathlib.Tactic
--- Theoretically, you could just write `import Mathlib`, but this will be somewhat slower.
 
-/- Remember we can open namespaces to shorten names and enable notation.
+import Mathlib.CategoryTheory.Category.Basic
+import Mathlib.CategoryTheory.Limits.HasLimits
+import Mathlib.CategoryTheory.Limits.Shapes.Pullback.HasPullback
 
-For example (feel free to change it): -/
-open Function Set
+open CategoryTheory
+open CategoryTheory.Limits
 
-/- Remember if many new definitions require a `noncomputable` either in the `section` or definition.
+noncomputable section has_producst_of_has_pullbacks
 
-For example (feel free to change it): -/
-noncomputable section
+variable {D: Type u} [Category.{v, u} D] [HasTerminal.{v, u} D] [HasPullbacks.{v, u} D]
+  {F :(Discrete WalkingPair) ⥤ D}
 
-/- You can now start writing definitions and theorems. -/
+def G :WalkingCospan ⥤ D := by
+  let left_to_terminal := terminal.from (F.obj ⟨WalkingPair.left⟩)
+  let right_to_terminal := terminal.from (F.obj ⟨WalkingPair.right⟩)
+  exact cospan left_to_terminal right_to_terminal
+
+def I :(Discrete WalkingPair ⥤ WalkingCospan) :=
+  pair WalkingCospan.left WalkingCospan.right
+
+lemma f :F = I ⋙ @G _ _ _ F := by
+  sorry
+
+
+theorem productExists : HasLimit F := sorry
+
+
+def product_to_pullback_diagram (F :(Discrete WalkingPair) ⥤ D) : WalkingCospan ⥤ D := by
+  have left_to_terminal := terminal.from (F.obj ⟨WalkingPair.left⟩)
+  have right_to_terminal := terminal.from (F.obj ⟨WalkingPair.right⟩)
+  exact cospan left_to_terminal right_to_terminal
+
+def product_into_pullback_inclusion :(Discrete WalkingPair) ⥤ WalkingCospan :=
+  pair WalkingCospan.left WalkingCospan.right
+
+lemma product_pullback_factorization (F :(Discrete WalkingPair) ⥤ D)
+  :F = product_into_pullback_inclusion ⋙ product_to_pullback_diagram F := by
+  let G := product_into_pullback_inclusion ⋙ product_to_pullback_diagram F
+  have h :F =G := sorry
+  apply Prefunctor.ext at h
+
+instance CategoryTheory.Limits.hasBinaryProducts_of_hasPullbacks
+     : HasBinaryProducts.{v, u} D where
+      has_limit(F :(Discrete WalkingPair)⥤ D) :HasLimit F := by
+        apply HasLimit.mk
+        let left_to_terminal := terminal.from (F.obj ⟨WalkingPair.left⟩)
+        let right_to_terminal := terminal.from (F.obj ⟨WalkingPair.right⟩)
+        let G := cospan left_to_terminal right_to_terminal
+        let ⟨G_cone, G_cone_is_limit⟩ := getLimitCone G
+        constructor
+        swap
+        constructor
+        swap
+        exact G_cone.pt
+        constructor
+        swap
+        intro j
+        exact G_cone.π.app ((pair WalkingCospan.left WalkingCospan.right).obj j)
+        -- rcases j with ⟨WalkingPair.left| WalkingPair.right⟩
+end has_producst_of_has_pullbacks
