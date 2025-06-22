@@ -42,6 +42,12 @@ def alpha : F  ≅ (I ⋙ G F) := by
   rfl
   rw[equality]
 
+def J :Cone F → Cone (G F) := by
+  intro cone
+  have cone' :BinaryFan (F.obj ⟨WalkingPair.left⟩) (F.obj ⟨WalkingPair.right⟩)
+  exact (Cones.postcompose (diagramIsoPair F).hom).obj cone
+  apply PullbackCone.mk cone'.fst cone'.snd
+  aesop_cat
 
 theorem productExists : HasLimit F := by
   let ⟨G_cone, G_cone_is_limit⟩ := getLimitCone (G F)
@@ -50,9 +56,38 @@ theorem productExists : HasLimit F := by
   constructor
   swap
   exact F_cone
-
-
-
+  constructor
+  rotate_left 2
+  intro cone
+  exact G_cone_is_limit.lift (J F cone)
+  intro cone ⟨j⟩
+  unfold F_cone I alpha
+  obtain ⟨left, right⟩ := j
+  unfold I J BinaryFan.fst
+  simp
+  unfold I J BinaryFan.snd
+  simp
+  intro cone m fac
+  rw [<-G_cone_is_limit.uniq]
+  intro j
+  obtain none| i := j
+  aesop_cat
+  let fac_i := fac ⟨i⟩
+  unfold F_cone I at fac_i
+  simp at fac_i
+  obtain left|right := i
+  unfold J BinaryFan.fst
+  simp
+  rw[<- fac_i]
+  unfold alpha I
+  simp
+  unfold J
+  simp
+  unfold BinaryFan.snd
+  simp
+  rw[<- fac_i]
+  unfold alpha I
+  simp
 
 -- def product_to_pullback_diagram (F :(Discrete WalkingPair) ⥤ D) : WalkingCospan ⥤ D := by
 --   have left_to_terminal := terminal.from (F.obj ⟨WalkingPair.left⟩)
