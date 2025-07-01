@@ -88,37 +88,88 @@ theorem productExists : HasLimit F := by
   rw[<- fac_i]
   unfold alpha I
   simp
-
--- def product_to_pullback_diagram (F :(Discrete WalkingPair) ⥤ D) : WalkingCospan ⥤ D := by
---   have left_to_terminal := terminal.from (F.obj ⟨WalkingPair.left⟩)
---   have right_to_terminal := terminal.from (F.obj ⟨WalkingPair.right⟩)
---   exact cospan left_to_terminal right_to_terminal
-
--- def product_into_pullback_inclusion :(Discrete WalkingPair) ⥤ WalkingCospan :=
---   pair WalkingCospan.left WalkingCospan.right
-
--- lemma product_pullback_factorization (F :(Discrete WalkingPair) ⥤ D)
---   :F = product_into_pullback_inclusion ⋙ product_to_pullback_diagram F := by
---   let G := product_into_pullback_inclusion ⋙ product_to_pullback_diagram F
---   have h :F =G := sorry
---   apply Prefunctor.ext at h
-
--- instance CategoryTheory.Limits.hasBinaryProducts_of_hasPullbacks
---      : HasBinaryProducts.{v, u} D where
---       has_limit(F :(Discrete WalkingPair)⥤ D) :HasLimit F := by
---         apply HasLimit.mk
---         let left_to_terminal := terminal.from (F.obj ⟨WalkingPair.left⟩)
---         let right_to_terminal := terminal.from (F.obj ⟨WalkingPair.right⟩)
---         let G := cospan left_to_terminal right_to_terminal
---         let ⟨G_cone, G_cone_is_limit⟩ := getLimitCone G
---         constructor
---         swap
---         constructor
---         swap
---         exact G_cone.pt
---         constructor
---         swap
---         intro j
---         exact G_cone.π.app ((pair WalkingCospan.left WalkingCospan.right).obj j)
---         -- rcases j with ⟨WalkingPair.left| WalkingPair.right⟩
 end has_producst_of_has_pullbacks
+
+section internal_category_struct
+-- Before we define internal categories, we define ICategoryStruct.
+-- This contains all the data of an internal category, except associativity
+-- and unitality of identities.
+class ICategoryStruct (C :Type u) [Category.{v, u} C] where
+  -- Objects and morphisms
+  objs :C
+  homs :C
+  source :homs ⟶ objs
+  target :homs ⟶ objs
+  id :objs ⟶ homs
+  -- Composable pairs and triples.
+  pair_cone :LimitCone (cospan source target)
+  tri_cone :LimitCone (cospan ((PullbackCone.snd pair_cone.cone)≫ source) target)
+  comp :pair_cone.cone.pt ⟶ homs
+  -- Axioms for source and target.
+  source_id : id ≫ source = 𝟙 objs
+  target_id : id ≫ target = 𝟙 objs
+  source_comp :comp ≫ source = (PullbackCone.snd pair_cone.cone) ≫ source
+  target_comp :comp ≫ target = (PullbackCone.fst pair_cone.cone) ≫ target
+
+-- We now prove that for every ICategoryStruct, certain morphisms exist.
+-- This is necessary to even be able to formulate the definition of an internal
+-- category.
+variable {C :Type u} [Category.{v, u} C] {Γ:ICategoryStruct C}
+open ICategoryStruct
+
+-- "Composes" two morphisms.
+def pcomp {A :C} (f g :A⟶ homs) (comm : f ≫ source = g ≫ target): A⟶ homs := by
+  apply (· ≫ comp)
+  exact Γ.pair_cone.isLimit.lift (PullbackCone.mk f g comm)
+
+-- Necessary for ICategory.id_comp
+def id_comp_hom :Γ.homs ⟶ Γ.homs:= by
+  apply pcomp (𝟙 homs) (source ≫ id)
+  simp
+  rw [target_id]
+  simp
+
+-- Necessary for ICategory.comp_id
+def comp_id_hom :Γ.homs ⟶Γ.homs:= by
+  apply pcomp (target ≫ id) (𝟙 homs)
+  simp
+  rw [source_id]
+  simp
+
+-- Now we define the two morphisms that compose a triple in each possible way.
+def π₁₂ :Γ.tri_cone.cone.pt ⟶ Γ.pair_cone.cone.pt := (PullbackCone.fst Γ.tri_cone.cone)
+def π₁ :Γ.tri_cone.cone.pt ⟶ Γ.homs := π₁₂ ≫ (PullbackCone.fst Γ.pair_cone.cone)
+def π₂ :Γ.tri_cone.cone.pt ⟶ Γ.homs := π₁₂ ≫ (PullbackCone.snd Γ.pair_cone.cone)
+def π₃ :Γ.tri_cone.cone.pt ⟶ Γ.homs := (PullbackCone.snd Γ.tri_cone.cone)
+def π₂₃ :Γ.tri_cone.cone.pt ⟶ Γ.pair_cone.cone.pt := by
+  have comm :π₂ ≫ Γ.source = π₃ ≫ Γ.target
+  unfold π₂ π₃ π₁₂
+  simp
+  exact PullbackCone.condition Γ.tri_cone.cone
+  exact Γ.pair_cone.isLimit.lift (PullbackCone.mk π₂ π₃ comm)
+
+def left_comp :Γ.tri_cone.cone.pt ⟶ Γ.homs := by
+  apply pcomp (π₁₂≫ comp) π₃
+  unfold π₁₂ π₃
+  simp
+  rw[source_comp, PullbackCone.condition Γ.tri_cone.cone]
+
+def right_comp :Γ.tri_cone.cone.pt ⟶ Γ.homs := by
+  apply pcomp π₁ (π₂₃ ≫ comp)
+  unfold π₁ π₂₃ π₁₂ π₂ π₃ π₁₂
+  simp
+  rw[target_comp, PullbackCone.condition Γ.pair_cone.cone]
+  simp
+
+end internal_category_struct
+
+
+section internal_category
+
+class ICategory (C :Type u) [Category.{v,u} C] extends ICategoryStruct C where
+  -- Category axioms.
+  id_comp :id_comp_hom = 𝟙 homs
+  comp_id :comp_id_hom = 𝟙 homs
+  assoc :left_comp = right_comp
+
+end internal_category
